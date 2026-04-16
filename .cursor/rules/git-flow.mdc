@@ -1,0 +1,76 @@
+---
+description: Git flow conventions and automated PR review + creation workflow
+alwaysApply: true
+---
+
+# Git Flow & PR Automation
+
+## Branch Conventions
+
+- `main` — production-ready releases only; never commit directly
+- `dev` — integration branch; all features merge here first
+- `feature/<short-name>` — one branch per feature/task, branched from `dev`
+- `hotfix/<short-name>` — critical fixes branched from `main`, merged into both `main` and `dev`
+
+## Automated Workflow: "review my PR" or "create a PR"
+
+When the user says anything like "review my PR", "code review", "raise a PR", or "create a PR to dev", immediately execute this workflow in order — no need to ask for confirmation before starting:
+
+### Step 1 — Detect context
+```bash
+git branch --show-current          # confirm feature branch name
+git log dev..HEAD --oneline        # list commits included in this PR
+git diff dev...HEAD --stat         # files changed summary
+```
+
+### Step 2 — Full diff for review
+```bash
+git diff dev...HEAD
+```
+
+### Step 3 — Code review
+Perform a structured review across these dimensions:
+1. **Architecture** — does the code follow Flutter best practices (separation of concerns, widget decomposition, state management)?
+2. **Logic** — correctness, edge cases, null safety
+3. **Style** — follows `analysis_options.yaml` lint rules; consistent naming (camelCase for variables/functions, PascalCase for classes)
+4. **Tests** — are new features covered by widget or unit tests?
+5. **Security** — no hardcoded secrets, keys, or credentials
+6. **Performance** — no unnecessary rebuilds, expensive operations in `build()`
+
+### Step 4 — Output
+Present a numbered list of issues found. Group them by severity:
+- **[CRITICAL]** — must fix before merge (bugs, security issues)
+- **[MAJOR]** — strongly recommended fixes
+- **[MINOR]** — style/nit suggestions
+
+If no issues are found, say "No issues found — ready to merge."
+
+### Step 5 — PR creation (only after user approves)
+Wait for the user to confirm issues are acceptable, then create the PR:
+
+```bash
+gh pr create \
+  --base dev \
+  --title "<branch-name>: <short description>" \
+  --body "$(cat <<'EOF'
+## Summary
+<bullet points from commit messages>
+
+## Changes
+<files changed summary>
+
+## Review checklist
+- [ ] Code reviewed
+- [ ] Tests passing
+- [ ] No hardcoded secrets
+EOF
+)"
+```
+
+## Branch creation reminder
+
+When starting new work, always create a feature branch from `dev`:
+```bash
+git checkout dev && git pull origin dev
+git checkout -b feature/<name>
+```
