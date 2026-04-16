@@ -7,16 +7,16 @@ todos:
     status: completed
   - id: git-init
     content: Initialize git, make initial commit, create GitHub repo, push main
-    status: in_progress
+    status: completed
   - id: dev-branch
     content: Create and push dev branch
-    status: pending
+    status: completed
   - id: cursor-rule
     content: Create .cursor/rules/git-flow.mdc with PR review workflow
     status: completed
   - id: pr-script
     content: Create .cursor/scripts/pr-review.sh and make executable
-    status: in_progress
+    status: completed
 isProject: false
 ---
 
