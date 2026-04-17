@@ -43,7 +43,6 @@ lib/generated_plugin_registrant.dart
 # IDEs
 .idea/
 .vscode/
-*.iml
 *.iws
 *.ipr
 

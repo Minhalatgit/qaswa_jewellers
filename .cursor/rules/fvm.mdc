@@ -1,0 +1,30 @@
+---
+description: Always use fvm flutter instead of flutter directly for all Flutter CLI commands
+alwaysApply: true
+---
+
+# Use FVM for Flutter Commands
+
+This project uses [FVM](https://fvm.app/) to manage Flutter versions. Always invoke Flutter through FVM.
+
+## CLI Commands
+
+```bash
+# ✅ CORRECT
+fvm flutter pub get
+fvm flutter run
+fvm flutter build apk
+fvm flutter analyze
+fvm dart fix --apply
+
+# ❌ WRONG
+flutter pub get
+flutter run
+dart fix --apply
+```
+
+## Absolute Path (if fvm not on PATH)
+
+```bash
+/Users/minhal/fvm/default/bin/flutter pub get
+```
