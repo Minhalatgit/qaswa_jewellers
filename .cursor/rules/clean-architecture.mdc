@@ -1,0 +1,51 @@
+---
+description: Clean Architecture layer rules — what belongs where and the dependency direction
+globs: lib/**/*.dart
+alwaysApply: true
+---
+
+# Clean Architecture — Layer Rules
+
+This project uses **Feature-First Clean Architecture** with 3 layers per feature.
+
+## Layer Responsibilities
+
+| Layer | Location | Allowed |
+|---|---|---|
+| Domain | `features/<f>/domain/` | Entities, Repository interfaces, UseCases. Pure Dart only — no Flutter, no Dio, no packages |
+| Data | `features/<f>/data/` | Repository impls, DataSources, Models (with `fromJson`/`toEntity()`) |
+| Presentation | `features/<f>/presentation/` | BLoC, Pages, Widgets. No direct API/DB calls |
+| Core | `core/` | Shared infrastructure: ApiClient, DI, Router, Theme, Constants, base classes |
+
+## The Dependency Rule
+
+```
+Presentation → Domain ← Data
+```
+
+- Domain has **zero** imports from `package:flutter`, `package:dio`, or any data/presentation file
+- Data depends on Domain (implements its interfaces)
+- Presentation depends on Domain (calls its UseCases)
+- Presentation **never** imports from `data/`
+- Data **never** imports from `presentation/`
+
+## ❌ Violations
+
+```dart
+// ❌ Domain importing a package
+import 'package:dio/dio.dart'; // NEVER in domain/
+
+// ❌ BLoC importing a model
+import '../../data/models/user_model.dart'; // NEVER in presentation/
+
+// ❌ DataSource importing BLoC
+import '../../presentation/bloc/auth_bloc.dart'; // NEVER in data/
+```
+
+## ✅ Correct Flow
+
+```
+UI (Page) → BLoC → UseCase → Repository (interface) → RepositoryImpl → DataSource → ApiClient
+```
+
+Each UseCase has one responsibility. One class, one `call()` method, one job.

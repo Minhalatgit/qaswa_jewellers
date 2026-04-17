@@ -1,0 +1,71 @@
+---
+description: Mandatory folder and file structure every feature must follow
+globs: lib/features/**/*.dart
+alwaysApply: false
+---
+
+# Feature Folder Structure
+
+Every feature under `lib/features/<feature_name>/` **must** have this exact structure:
+
+```
+<feature>/
+  data/
+    datasources/
+      <feature>_remote_data_source.dart       ← abstract interface
+      <feature>_remote_data_source_impl.dart  ← Dio implementation, throws on error
+    models/
+      <model>_model.dart                      ← fromJson + toEntity()
+    repositories/
+      <feature>_repository_impl.dart          ← try/catch, returns ApiResponse<Entity>
+  domain/
+    entities/
+      <entity>.dart                           ← pure Dart, no JSON, no packages
+    repositories/
+      <feature>_repository.dart               ← abstract interface only
+    usecases/
+      <action>_usecase.dart                   ← one class, one call() method
+  presentation/
+    bloc/
+      <feature>_event.dart
+      <feature>_state.dart
+      <feature>_bloc.dart
+    pages/
+      <screen>_page.dart
+    widgets/
+      <component>.dart
+```
+
+## Naming Conventions
+
+| Artifact | Convention | Example |
+|---|---|---|
+| Files | `snake_case.dart` | `auth_repository.dart` |
+| Classes | `PascalCase` | `AuthRepositoryImpl` |
+| Entities | Singular noun | `User`, `Product` |
+| Models | Entity name + `Model` | `UserModel` |
+| UseCases | `<Action>UseCase` | `LoginUseCase` |
+| DataSources | `<Feature>RemoteDataSource` | `AuthRemoteDataSource` |
+| Repositories (interface) | `<Feature>Repository` | `AuthRepository` |
+| Repositories (impl) | `<Feature>RepositoryImpl` | `AuthRepositoryImpl` |
+
+## DI — Feature Registration File
+
+Each feature has its own DI file at `core/di/<feature>_injection.dart`.
+It is called from the master `core/di/injection.dart`.
+
+```dart
+// core/di/injection.dart
+Future<void> setupDI() async {
+  _setupCore();
+  _setupAuth();
+  // _setupInventory(); ← add per feature
+}
+```
+
+## Rules
+
+- A DataSource interface **must** exist alongside its impl — never just the impl
+- A Repository interface **must** live in `domain/`, never in `data/`
+- Pages go in `pages/`, reusable feature-scoped widgets go in `widgets/`
+- Shared/cross-feature widgets go in `core/widgets/`, never in a feature folder

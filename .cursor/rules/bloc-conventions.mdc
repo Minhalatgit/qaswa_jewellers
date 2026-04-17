@@ -1,0 +1,89 @@
+---
+description: BLoC conventions — naming, sealed classes, state handling, and DI registration
+globs: lib/features/**/bloc/*.dart
+alwaysApply: false
+---
+
+# BLoC Conventions
+
+## 3-File Rule
+
+Every BLoC lives in `presentation/bloc/` as exactly 3 files:
+```
+auth_event.dart
+auth_state.dart
+auth_bloc.dart
+```
+
+## Events — Sealed + Prefixed
+
+Events use `sealed class` and are named `<Feature><Action><Verb>`:
+
+```dart
+// ✅ CORRECT
+sealed class AuthEvent {}
+final class AuthLoginRequested  extends AuthEvent {
+  final String email, password;
+  const AuthLoginRequested({required this.email, required this.password});
+}
+final class AuthLogoutRequested extends AuthEvent {}
+final class AuthStatusChecked   extends AuthEvent {}
+
+// ❌ WRONG — no prefix, not sealed
+abstract class AuthEvent {}
+class LoginRequested extends AuthEvent {}
+```
+
+## States — Sealed
+
+```dart
+sealed class AuthState {}
+class AuthInitial         extends AuthState {}
+class AuthLoading         extends AuthState {}
+class AuthAuthenticated   extends AuthState {
+  final User user;
+  const AuthAuthenticated(this.user);
+}
+class AuthUnauthenticated extends AuthState {}
+class AuthError           extends AuthState {
+  final String message;
+  const AuthError(this.message);
+}
+```
+
+## BLoC Handler Pattern
+
+```dart
+on<AuthLoginRequested>((event, emit) async {
+  emit(AuthLoading());
+  final response = await loginUseCase(
+    LoginParams(email: event.email, password: event.password),
+  );
+  switch (response) {
+    case ApiSuccess(:final data): emit(AuthAuthenticated(data));
+    case ApiError(:final message): emit(AuthError(message));
+  }
+});
+```
+
+## UI — Use switch for exhaustive state handling
+
+```dart
+// ✅ switch forces all states to be handled
+switch (state) {
+  case AuthInitial():              return const SplashView();
+  case AuthLoading():              return const LoadingSpinner();
+  case AuthAuthenticated(:final user): return HomeView(user: user);
+  case AuthUnauthenticated():      return const LoginPage();
+  case AuthError(:final message):  return ErrorView(message: message);
+}
+```
+
+## DI Registration
+
+```dart
+// ✅ BLoC = registerFactory (fresh instance per navigation)
+sl.registerFactory(() => AuthBloc(loginUseCase: sl(), logoutUseCase: sl()));
+
+// ❌ NEVER registerSingleton or registerLazySingleton for BLoC
+```

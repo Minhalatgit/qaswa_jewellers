@@ -1,0 +1,101 @@
+---
+description: ApiResponse wrapper, error handling boundaries, ApiClient, and token storage rules
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# API & Error Handling
+
+## `ApiResponse<T>` — The Only Error Contract
+
+All repository methods return `ApiResponse<T>`. Never throw from a repository or usecase.
+
+```dart
+// core/error/api_response.dart
+sealed class ApiResponse<T> { const ApiResponse(); }
+
+final class ApiSuccess<T> extends ApiResponse<T> {
+  final T data;
+  const ApiSuccess(this.data);
+}
+
+final class ApiError<T> extends ApiResponse<T> {
+  final String message;
+  final int? statusCode;
+  const ApiError({required this.message, this.statusCode});
+}
+```
+
+## Error Boundary — Repository Only
+
+| Layer | try/catch? | Returns |
+|---|---|---|
+| DataSource | ❌ Never | Raw model or throws |
+| Repository | ✅ Always | `ApiResponse<Entity>` |
+| UseCase | ❌ Never | Passes `ApiResponse` through |
+| BLoC | ❌ Never | Maps to State |
+
+```dart
+// ✅ Repository — catches and wraps
+Future<ApiResponse<User>> login(String email, String password) async {
+  try {
+    final model = await remoteDataSource.login(email, password);
+    return ApiSuccess(model.toEntity());
+  } on DioException catch (e) {
+    return ApiError(message: e.message ?? 'Request failed', statusCode: e.response?.statusCode);
+  } catch (e) {
+    return ApiError(message: e.toString());
+  }
+}
+```
+
+## Model → Entity Contract
+
+Every Model **must** implement `toEntity()`. Repositories **never** pass Models upward.
+
+```dart
+class UserModel {
+  factory UserModel.fromJson(Map<String, dynamic> json) => ...;
+  User toEntity() => User(id: id, name: name, email: email); // ← MANDATORY
+}
+```
+
+## Thin ApiClient
+
+`ApiClient` wraps Dio with `get/post/put/delete`. It returns raw `Response` — no JSON parsing, no model mapping.
+
+```dart
+// ✅ DataSource parses the response
+final response = await apiClient.post('/auth/login', data: body);
+return UserModel.fromJson(response.data);
+
+// ❌ ApiClient must not know about models
+```
+
+## Token Storage
+
+Tokens are stored via `FlutterSecureStorage` using keys from `StorageKeys` constants. Never hardcode key strings inline.
+
+```dart
+// core/constants/storage_keys.dart
+class StorageKeys {
+  static const String accessToken  = 'access_token';
+  static const String refreshToken = 'refresh_token';
+}
+
+// ✅ Correct
+await storage.write(key: StorageKeys.accessToken, value: token);
+
+// ❌ Wrong
+await storage.write(key: 'access_token', value: token);
+```
+
+## UseCase Base Class
+
+```dart
+// core/usecases/usecase.dart
+abstract class UseCase<Type, Params> {
+  Future<ApiResponse<Type>> call(Params params);
+}
+class NoParams {}
+```
