@@ -1,23 +1,52 @@
 ---
-description: BLoC conventions — naming, sealed classes, state handling, and DI registration
+description: BLoC conventions — naming, sealed classes, part files, state handling, and DI registration
 globs: lib/features/**/bloc/*.dart
 alwaysApply: false
 ---
 
 # BLoC Conventions
 
-## 3-File Rule
+## 3-File Rule with `part`/`part of`
 
-Every BLoC lives in `presentation/bloc/` as exactly 3 files:
+Every BLoC lives in `presentation/bloc/` as exactly 3 files. Events and states use
+Dart's `part`/`part of` so they form one logical unit under the BLoC file:
+
 ```
-auth_event.dart
-auth_state.dart
-auth_bloc.dart
+auth_bloc.dart    ← declares the parts
+auth_event.dart   ← part of auth_bloc.dart
+auth_state.dart   ← part of auth_bloc.dart
 ```
+
+```dart
+// auth_bloc.dart
+part 'auth_event.dart';
+part 'auth_state.dart';
+
+class AuthBloc extends Bloc<AuthEvent, AuthState> { ... }
+```
+
+```dart
+// auth_event.dart
+part of 'auth_bloc.dart';
+
+sealed class AuthEvent {}
+// event classes here...
+```
+
+```dart
+// auth_state.dart
+part of 'auth_bloc.dart';
+
+sealed class AuthState {}
+// state classes here...
+```
+
+> ⚠️ Part files cannot be imported directly. Always import `auth_bloc.dart` — it
+> brings in events and states automatically.
 
 ## Events — Sealed + Prefixed
 
-Events use `sealed class` and are named `<Feature><Action><Verb>`:
+Events are named `<Feature><Action><Verb>`:
 
 ```dart
 // ✅ CORRECT
@@ -53,16 +82,49 @@ class AuthError           extends AuthState {
 
 ## BLoC Handler Pattern
 
+Event handlers are **always extracted into separate private methods**. Never write logic inline inside `on<>()`.
+
+Naming convention: `_on<EventName>` — exactly mirrors the event class name with a `_on` prefix.
+
 ```dart
+// ✅ CORRECT — register with method reference
+class AuthBloc extends Bloc<AuthEvent, AuthState> {
+  AuthBloc({required this.loginUseCase, required this.logoutUseCase})
+      : super(AuthInitial()) {
+    on<AuthLoginRequested>(_onAuthLoginRequested);
+    on<AuthLogoutRequested>(_onAuthLogoutRequested);
+    on<AuthStatusChecked>(_onAuthStatusChecked);
+  }
+
+  Future<void> _onAuthLoginRequested(
+    AuthLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    final response = await loginUseCase(
+      LoginParams(email: event.email, password: event.password),
+    );
+    switch (response) {
+      case ApiSuccess(:final data): emit(AuthAuthenticated(data));
+      case ApiError(:final message): emit(AuthError(message));
+    }
+  }
+
+  Future<void> _onAuthLogoutRequested(
+    AuthLogoutRequested event,
+    Emitter<AuthState> emit,
+  ) async { ... }
+
+  Future<void> _onAuthStatusChecked(
+    AuthStatusChecked event,
+    Emitter<AuthState> emit,
+  ) async { ... }
+}
+
+// ❌ WRONG — inline logic directly in on<>()
 on<AuthLoginRequested>((event, emit) async {
   emit(AuthLoading());
-  final response = await loginUseCase(
-    LoginParams(email: event.email, password: event.password),
-  );
-  switch (response) {
-    case ApiSuccess(:final data): emit(AuthAuthenticated(data));
-    case ApiError(:final message): emit(AuthError(message));
-  }
+  // ...
 });
 ```
 

@@ -63,7 +63,53 @@ Future<void> setupDI() async {
 }
 ```
 
-## Rules
+## Barrel Imports
+
+Use a barrel file (named after its folder) to re-export all public files in a folder.
+**Only use barrels in `core/` folders** — never inside feature `data/` (Models must not leak outside their layer).
+
+```
+core/
+  widgets/
+    widgets.dart        ← barrel
+    primary_button.dart
+    loading_spinner.dart
+    app_text_field.dart
+  utils/
+    utils.dart          ← barrel
+    date_formatter.dart
+    validators.dart
+  extensions/
+    extensions.dart     ← barrel
+    string_extensions.dart
+    context_extensions.dart
+  error/
+    error.dart          ← barrel
+    api_response.dart
+```
+
+```dart
+// core/widgets/widgets.dart
+export 'primary_button.dart';
+export 'loading_spinner.dart';
+export 'app_text_field.dart';
+```
+
+```dart
+// ✅ Clean single import in any page
+import 'package:qaswa_jewellers/core/widgets/widgets.dart';
+
+// ❌ Multiple granular imports
+import 'package:qaswa_jewellers/core/widgets/primary_button.dart';
+import 'package:qaswa_jewellers/core/widgets/loading_spinner.dart';
+```
+
+**Rules:**
+- Barrel file is named `<folder_name>.dart` — never `index.dart`
+- Feature `data/models/` — **no barrel** — Models must not be reachable from `presentation/`
+- Feature `presentation/bloc/` — **no barrel** — import `auth_bloc.dart` directly (it pulls in parts)
+
+## General Rules
 
 - A DataSource interface **must** exist alongside its impl — never just the impl
 - A Repository interface **must** live in `domain/`, never in `data/`
