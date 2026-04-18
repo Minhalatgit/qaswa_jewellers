@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/constants/storage_keys.dart';
 import '../../../../core/error/api_response.dart';
+import '../../../../core/services/services.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
@@ -10,21 +10,18 @@ import '../datasources/auth_remote_data_source.dart';
 class AuthRepositoryImpl implements AuthRepository {
   const AuthRepositoryImpl({
     required AuthRemoteDataSource remoteDataSource,
-    required FlutterSecureStorage storage,
+    required StorageService storage,
   })  : _remoteDataSource = remoteDataSource,
         _storage = storage;
 
   final AuthRemoteDataSource _remoteDataSource;
-  final FlutterSecureStorage _storage;
+  final StorageService _storage;
 
   @override
   Future<ApiResponse<User>> login(String email, String password) async {
     try {
       final result = await _remoteDataSource.login(email, password);
-      await _storage.write(
-        key: StorageKeys.accessToken,
-        value: result.accessToken,
-      );
+      await _storage.write(StorageKeys.accessToken, result.accessToken);
       return ApiSuccess(result.user.toEntity());
     } on DioException catch (e) {
       return ApiError(
@@ -40,7 +37,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<ApiResponse<void>> logout() async {
     try {
       await _remoteDataSource.logout();
-      await _storage.delete(key: StorageKeys.accessToken);
+      await _storage.delete(StorageKeys.accessToken);
       return const ApiSuccess(null);
     } on DioException catch (e) {
       return ApiError(

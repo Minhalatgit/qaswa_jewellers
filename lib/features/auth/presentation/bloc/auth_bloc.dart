@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/constants/storage_keys.dart';
 import '../../../../core/error/api_response.dart';
+import '../../../../core/services/services.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
@@ -17,7 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required LoginUseCase loginUseCase,
     required LogoutUseCase logoutUseCase,
     required GetCurrentUserUseCase getCurrentUserUseCase,
-    required FlutterSecureStorage storage,
+    required StorageService storage,
   })  : _loginUseCase = loginUseCase,
         _logoutUseCase = logoutUseCase,
         _getCurrentUserUseCase = getCurrentUserUseCase,
@@ -31,7 +31,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase _loginUseCase;
   final LogoutUseCase _logoutUseCase;
   final GetCurrentUserUseCase _getCurrentUserUseCase;
-  final FlutterSecureStorage _storage;
+  final StorageService _storage;
 
   Future<void> _onAuthLoginRequested(
     AuthLoginRequested event,
@@ -67,7 +67,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthStatusChecked event,
     Emitter<AuthState> emit,
   ) async {
-    final token = await _storage.read(key: StorageKeys.accessToken);
+    final token = await _storage.read(StorageKeys.accessToken);
     if (token == null) {
       emit(AuthUnauthenticated());
       return;
@@ -77,7 +77,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       case ApiSuccess(:final data):
         emit(AuthAuthenticated(data));
       case ApiError():
-        await _storage.delete(key: StorageKeys.accessToken);
+        await _storage.delete(StorageKeys.accessToken);
         emit(AuthUnauthenticated());
     }
   }

@@ -1,4 +1,3 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../features/auth/data/datasources/auth_remote_data_source.dart';
@@ -10,6 +9,7 @@ import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/domain/usecases/logout_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../api/api_client.dart';
+import '../services/services.dart';
 
 void setupAuthDependencies(GetIt sl) {
   sl.registerLazySingleton<AuthRemoteDataSource>(
@@ -19,7 +19,7 @@ void setupAuthDependencies(GetIt sl) {
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       remoteDataSource: sl<AuthRemoteDataSource>(),
-      storage: sl<FlutterSecureStorage>(),
+      storage: sl<StorageService>(),
     ),
   );
 
@@ -40,7 +40,7 @@ void setupAuthDependencies(GetIt sl) {
       loginUseCase: sl<LoginUseCase>(),
       logoutUseCase: sl<LogoutUseCase>(),
       getCurrentUserUseCase: sl<GetCurrentUserUseCase>(),
-      storage: sl<FlutterSecureStorage>(),
+      storage: sl<StorageService>(),
     ),
   );
 }
