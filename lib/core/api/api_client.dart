@@ -1,7 +1,5 @@
 import 'package:dio/dio.dart';
 
-import '../constants/api_constants.dart';
-
 class ApiClient {
   ApiClient(this._dio);
 
@@ -13,7 +11,7 @@ class ApiClient {
     Options? options,
   }) {
     return _dio.get(
-      '${ApiConstants.baseUrl}$path',
+      path,
       queryParameters: queryParameters,
       options: options,
     );
@@ -26,7 +24,7 @@ class ApiClient {
     Options? options,
   }) {
     return _dio.post(
-      '${ApiConstants.baseUrl}$path',
+      path,
       data: data,
       queryParameters: queryParameters,
       options: options,
@@ -40,7 +38,7 @@ class ApiClient {
     Options? options,
   }) {
     return _dio.put(
-      '${ApiConstants.baseUrl}$path',
+      path,
       data: data,
       queryParameters: queryParameters,
       options: options,
@@ -54,7 +52,7 @@ class ApiClient {
     Options? options,
   }) {
     return _dio.delete(
-      '${ApiConstants.baseUrl}$path',
+      path,
       data: data,
       queryParameters: queryParameters,
       options: options,

@@ -1,0 +1,189 @@
+---
+description: Form validation pattern — synchronous ValidationUseCase in domain, called inside BLoC before action dispatch
+globs: lib/features/**/*.dart
+alwaysApply: false
+---
+
+# Form Validation Pattern
+
+## Rules at a Glance
+
+- Validation logic lives in the **domain layer** as a synchronous usecase
+- The validation usecase does **not** extend the async `UseCase<T, P>` base class — it is infallible and returns a result directly
+- The BLoC calls the validation usecase **before** dispatching to the action usecase
+- `ValidationResult` extends `Equatable` — it is stored in BLoC state `props`
+- The widget has **no validator lambdas** — it dispatches events only
+
+---
+
+## File Locations
+
+```
+features/<feature>/
+  domain/
+    usecases/
+      validate_<action>_input_usecase.dart   ← synchronous, no Future, no ApiResponse
+    value_objects/
+      <action>_validation_result.dart        ← Equatable, field-level errors + isValid
+  presentation/
+    bloc/
+      <feature>_bloc.dart                    ← calls validation before action usecase
+      <feature>_state.dart                   ← includes a ValidationFailed state
+```
+
+---
+
+## ValidationResult — Equatable Domain Class
+
+```dart
+// domain/value_objects/login_validation_result.dart
+class LoginValidationResult extends Equatable {
+  final String? emailError;
+  final String? passwordError;
+
+  const LoginValidationResult({this.emailError, this.passwordError});
+
+  bool get isValid => emailError == null && passwordError == null;
+
+  @override
+  List<Object?> get props => [emailError, passwordError];
+}
+```
+
+---
+
+## ValidationUseCase — Synchronous, No Base Class
+
+```dart
+// ✅ CORRECT — standalone class, synchronous call(), no Future, no ApiResponse
+class ValidateLoginInputUseCase {
+  LoginValidationResult call({required String email, required String password}) {
+    return LoginValidationResult(
+      emailError: _validateEmail(email),
+      passwordError: _validatePassword(password),
+    );
+  }
+
+  String? _validateEmail(String value) { ... }
+  String? _validatePassword(String value) { ... }
+}
+
+// ❌ WRONG — do not extend the async UseCase base class
+class ValidateLoginInputUseCase extends UseCase<LoginValidationResult, LoginParams> {
+  Future<ApiResponse<LoginValidationResult>> call(LoginParams params) async { ... }
+}
+```
+
+---
+
+## BLoC — Validate Before Action Dispatch
+
+Add a `<Feature>ValidationFailed` state and call the validation usecase at the top of the action handler.
+
+```dart
+// ✅ CORRECT — validate first, then proceed
+Future<void> _onAuthLoginRequested(
+  AuthLoginRequested event,
+  Emitter<AuthState> emit,
+) async {
+  final validation = _validateLoginInputUseCase(
+    email: event.email,
+    password: event.password,
+  );
+
+  if (!validation.isValid) {
+    emit(AuthValidationFailed(validation));
+    return;
+  }
+
+  emit(AuthLoading());
+  final response = await _loginUseCase(
+    LoginParams(email: event.email, password: event.password),
+  );
+  switch (response) {
+    case ApiSuccess(:final data): emit(AuthAuthenticated(data));
+    case ApiError(:final message): emit(AuthError(message));
+  }
+}
+```
+
+```dart
+// <feature>_state.dart — add a ValidationFailed state per action
+class AuthValidationFailed extends AuthState {
+  final LoginValidationResult result;
+  const AuthValidationFailed(this.result);
+
+  @override
+  List<Object?> get props => [result];
+}
+```
+
+---
+
+## Widget — No Validator Lambdas
+
+```dart
+// ✅ CORRECT — widget reads errors from state; BLoC owns validation
+AppTextField(
+  controller: _emailController,
+  label: AppStrings.email,
+  errorText: state is AuthValidationFailed ? state.result.emailError : null,
+),
+
+// ❌ WRONG — validation logic inside widget
+AppTextField(
+  validator: (value) {
+    if (value == null || value.isEmpty) return 'Required';
+    // ...
+  },
+),
+```
+
+Remove `GlobalKey<FormState>` — it is not needed when validation is owned by the BLoC.
+
+---
+
+## DI Registration
+
+```dart
+// core/di/<feature>_injection.dart
+sl.registerLazySingleton(() => ValidateLoginInputUseCase());
+
+sl.registerFactory(() => AuthBloc(
+  validateLoginInputUseCase: sl(),
+  loginUseCase: sl(),
+  // ...
+));
+```
+
+`ValidationUseCase` is stateless — `registerLazySingleton` is correct.
+
+---
+
+## Unit Test
+
+```dart
+final usecase = ValidateLoginInputUseCase();
+
+test('isValid false when email is missing @', () {
+  final result = usecase(email: 'notanemail', password: 'secret123');
+  expect(result.emailError, AppStrings.invalidEmail);
+  expect(result.isValid, isFalse);
+});
+
+test('isValid true for well-formed input', () {
+  final result = usecase(email: 'a@b.com', password: 'secret123');
+  expect(result.isValid, isTrue);
+});
+```
+
+---
+
+## ❌ Violations
+
+- Inline validator lambdas inside any widget
+- Validation logic inside a Repository, DataSource, or `ApiClient`
+- `ValidationUseCase` extending the async `UseCase<T, P>` base class
+- Using `_formKey.currentState?.validate()` when a `ValidationUseCase` exists for the form
+- `ValidationResult` without `Equatable` (it lives in BLoC state `props`)
+- Emitting `AuthLoading` before validating — validation must happen first, synchronously
