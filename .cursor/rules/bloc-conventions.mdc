@@ -1,5 +1,5 @@
 ---
-description: BLoC conventions — naming, sealed classes, part files, state handling, and DI registration
+description: BLoC conventions — naming, sealed classes, part files, state handling, Equatable, and DI registration
 globs: lib/features/**/bloc/*.dart
 alwaysApply: false
 ---
@@ -29,7 +29,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> { ... }
 // auth_event.dart
 part of 'auth_bloc.dart';
 
-sealed class AuthEvent {}
+sealed class AuthEvent extends Equatable {}
 // event classes here...
 ```
 
@@ -37,48 +37,99 @@ sealed class AuthEvent {}
 // auth_state.dart
 part of 'auth_bloc.dart';
 
-sealed class AuthState {}
+sealed class AuthState extends Equatable {}
 // state classes here...
 ```
 
 > ⚠️ Part files cannot be imported directly. Always import `auth_bloc.dart` — it
 > brings in events and states automatically.
 
-## Events — Sealed + Prefixed
+## Equatable — Required on All Events & States
+
+All event and state base classes **must** extend `Equatable`. Every subclass **must**
+override `props` to list the fields that determine equality.
+
+```dart
+// pubspec.yaml — ensure this dependency exists
+// equatable: ^2.0.5
+```
+
+**Why Equatable?**
+
+BLoC uses `==` equality to decide whether to emit a new state. Without Equatable,
+Dart compares objects by reference (identity), so two identical states are never
+equal — causing unnecessary UI rebuilds. Equatable overrides `==` and `hashCode`
+based on `props`, enabling BLoC to skip emitting when the state hasn't changed.
+
+| Without Equatable | With Equatable |
+|---|---|
+| `AuthError("oops") == AuthError("oops")` → `false` (different instances) | `AuthError("oops") == AuthError("oops")` → `true` |
+| Every `emit()` triggers a rebuild, even duplicates | BLoC skips rebuild when new state equals current state |
+| Harder to test state equality with `expect()` | `blocTest` assertions work with simple value comparison |
+
+## Events — Sealed + Prefixed + Equatable
 
 Events are named `<Feature><Action><Verb>`:
 
 ```dart
 // ✅ CORRECT
-sealed class AuthEvent {}
-final class AuthLoginRequested  extends AuthEvent {
+sealed class AuthEvent extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+final class AuthLoginRequested extends AuthEvent {
   final String email, password;
   const AuthLoginRequested({required this.email, required this.password});
+
+  @override
+  List<Object?> get props => [email, password];
 }
+
 final class AuthLogoutRequested extends AuthEvent {}
 final class AuthStatusChecked   extends AuthEvent {}
 
-// ❌ WRONG — no prefix, not sealed
+// ❌ WRONG — no prefix, not sealed, no Equatable
 abstract class AuthEvent {}
 class LoginRequested extends AuthEvent {}
 ```
 
-## States — Sealed
+> Events with no fields can leave `props` empty (inherited from base) — still extend
+> `Equatable` for consistency and future-proofing.
+
+## States — Sealed + Equatable
 
 ```dart
-sealed class AuthState {}
-class AuthInitial         extends AuthState {}
-class AuthLoading         extends AuthState {}
-class AuthAuthenticated   extends AuthState {
+sealed class AuthState extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+class AuthInitial extends AuthState {}
+
+class AuthLoading extends AuthState {}
+
+class AuthAuthenticated extends AuthState {
   final User user;
   const AuthAuthenticated(this.user);
+
+  @override
+  List<Object?> get props => [user];
 }
+
 class AuthUnauthenticated extends AuthState {}
-class AuthError           extends AuthState {
+
+class AuthError extends AuthState {
   final String message;
   const AuthError(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }
 ```
+
+> `AuthLoading` and `AuthInitial` have no fields — inheriting `props: []` from
+> the base is sufficient. BLoC will still deduplicate consecutive identical emissions.
 
 ## BLoC Handler Pattern
 

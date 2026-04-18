@@ -52,12 +52,18 @@ Future<ApiResponse<User>> login(String email, String password) async {
 ## Model → Entity Contract
 
 Every Model **must** implement `toEntity()`. Repositories **never** pass Models upward.
+Models do **not** extend `Equatable` — they are short-lived DTOs that are parsed,
+converted, and discarded inside the data layer.
 
 ```dart
+// ✅ CORRECT
 class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) => ...;
   User toEntity() => User(id: id, name: name, email: email); // ← MANDATORY
 }
+
+// ❌ WRONG — Equatable on a model is unnecessary noise
+class UserModel extends Equatable { ... }
 ```
 
 ## Thin ApiClient

@@ -12,7 +12,7 @@ This project uses **Feature-First Clean Architecture** with 3 layers per feature
 
 | Layer | Location | Allowed |
 |---|---|---|
-| Domain | `features/<f>/domain/` | Entities, Repository interfaces, UseCases. Pure Dart only — no Flutter, no Dio, no packages |
+| Domain | `features/<f>/domain/` | Entities, Repository interfaces, UseCases. Pure Dart only — no Flutter, no Dio, no framework packages. `equatable` is permitted (pure Dart utility) |
 | Data | `features/<f>/data/` | Repository impls, DataSources, Models (with `fromJson`/`toEntity()`) |
 | Presentation | `features/<f>/presentation/` | BLoC, Pages, Widgets. No direct API/DB calls |
 | Core | `core/` | Shared infrastructure: ApiClient, DI, Router, Theme, Constants, base classes |
@@ -24,15 +24,64 @@ Presentation → Domain ← Data
 ```
 
 - Domain has **zero** imports from `package:flutter`, `package:dio`, or any data/presentation file
+- `package:equatable` is the **only** allowed third-party import in Domain — it is a pure Dart value-equality utility with no platform or framework dependencies
 - Data depends on Domain (implements its interfaces)
 - Presentation depends on Domain (calls its UseCases)
 - Presentation **never** imports from `data/`
 - Data **never** imports from `presentation/`
 
+## Entities — Must Extend Equatable
+
+All domain entities **must** extend `Equatable` and override `props`. This is required
+because entities are stored inside BLoC state `props` — if entities don't implement
+value equality, Equatable on the state is ineffective and BLoC will over-rebuild.
+
+```dart
+// ✅ CORRECT — entity with Equatable
+class User extends Equatable {
+  final String id;
+  final String name;
+  final String email;
+
+  const User({required this.id, required this.name, required this.email});
+
+  @override
+  List<Object?> get props => [id, name, email];
+}
+
+// ❌ WRONG — no equality; BLoC cannot deduplicate states containing this entity
+class User {
+  final String id;
+  final String name;
+  final String email;
+}
+```
+
+## Models — Do NOT Use Equatable
+
+Models (`data/models/`) are short-lived data transfer objects. They exist only inside
+the data layer, are parsed from JSON, converted via `toEntity()`, and discarded.
+They are never compared, never stored in state, and never need equality logic.
+
+```dart
+// ✅ CORRECT — model without Equatable
+class UserModel {
+  final String id;
+  final String name;
+  final String email;
+
+  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(...);
+  User toEntity() => User(id: id, name: name, email: email);
+}
+
+// ❌ UNNECESSARY — don't add Equatable to models
+class UserModel extends Equatable { ... }
+```
+
 ## ❌ Violations
 
 ```dart
-// ❌ Domain importing a package
+// ❌ Domain importing a framework/infrastructure package
 import 'package:dio/dio.dart'; // NEVER in domain/
 
 // ❌ BLoC importing a model
@@ -40,6 +89,9 @@ import '../../data/models/user_model.dart'; // NEVER in presentation/
 
 // ❌ DataSource importing BLoC
 import '../../presentation/bloc/auth_bloc.dart'; // NEVER in data/
+
+// ❌ Entity without Equatable stored in BLoC state props
+class Product { final String id; } // props => [product] comparison will always fail
 ```
 
 ## ✅ Correct Flow

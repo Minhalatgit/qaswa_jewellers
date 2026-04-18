@@ -1,0 +1,77 @@
+---
+description: Use core shared widgets when building any UI in this project
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# UI Widget Conventions
+
+Always use the shared widgets from `lib/core/widgets/` instead of raw Flutter primitives. Import via the barrel: `import 'package:qaswa_jewellers/core/widgets/widgets.dart';`
+
+## Widget Reference
+
+| Use case | Use | Instead of |
+|---|---|---|
+| Any text | `AppText`, `AppText.titleLarge(...)`, etc. | `Text(...)` |
+| Primary action button | `AppButton(label: ..., onPressed: ...)` | `ElevatedButton` |
+| Secondary/ghost button | `AppButton.outlined(...)` | `OutlinedButton` |
+| Inline text-only button | `AppButton.text(...)` | `TextButton` |
+| Form input | `AppTextField(label: ..., controller: ...)` | `TextFormField` / `TextField` |
+| Search input | `AppSearchField(controller: ...)` | custom `TextField` with search icon |
+| Dropdown / select | `AppDropdownField<T>(items: ..., onChanged: ...)` | `DropdownButton` / `DropdownButtonFormField` |
+| Loading indicator | `AppLoader()` | `CircularProgressIndicator` |
+| Loading inside button | pass `isLoading: true` to `AppButton` | manual loader in button child |
+| Horizontal rule | `AppDivider()` | `Divider()` |
+| Empty list state | `AppEmptyState(message: ...)` | custom column with icon + text |
+| Error/failure state | `AppErrorState(message: ..., onRetry: ...)` | custom error column |
+| Toast / feedback | `AppSnackbar.showSuccess(context, ...)` / `.showError(...)` / `.showInfo(...)` | `ScaffoldMessenger.of(context).showSnackBar(...)` |
+
+## AppText Named Constructors
+
+```dart
+AppText.displayLarge('Heading')
+AppText.headlineMedium('Section title')
+AppText.titleLarge('Card title')
+AppText.titleMedium('Sub-title')
+AppText.bodyLarge('Primary body')
+AppText.bodyMedium('Secondary body')   // default when no constructor is used
+AppText.labelLarge('Button label')
+AppText.labelSmall('Caption')
+```
+
+All `AppText` variants accept optional `color`, `textAlign`, `maxLines`, and `overflow`.
+
+## Examples
+
+```dart
+// ✅ CORRECT
+AppText.titleLarge('Welcome back'),
+AppText('Some body copy', color: AppColors.secondary),
+AppButton(label: 'Save', onPressed: _onSave, isLoading: _isSaving),
+AppButton.outlined(label: 'Cancel', onPressed: Navigator.of(context).pop),
+AppTextField(label: 'Email', controller: _emailController, validator: _validateEmail),
+AppDropdownField<Category>(items: categories, onChanged: _onCategorySelected),
+AppSearchField(controller: _searchController, onSearch: _onSearch),
+AppLoader(),
+AppDivider(),
+AppEmptyState(message: 'No orders yet'),
+AppErrorState(onRetry: _fetchData),
+AppSnackbar.showSuccess(context, 'Saved successfully'),
+
+// ❌ WRONG — do not use raw Flutter primitives
+Text('Welcome back', style: Theme.of(context).textTheme.titleLarge),
+ElevatedButton(onPressed: _onSave, child: Text('Save')),
+TextFormField(decoration: InputDecoration(labelText: 'Email')),
+CircularProgressIndicator(),
+Divider(),
+ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved'))),
+```
+
+## ❌ Violations
+
+- Using `Text(...)` directly anywhere in a widget tree
+- Using `ElevatedButton`, `OutlinedButton`, or `TextButton` directly
+- Using `TextField` or `TextFormField` directly
+- Implementing a custom loading spinner instead of `AppLoader`
+- Calling `showSnackBar` directly instead of `AppSnackbar`
+- Building a custom empty/error state instead of `AppEmptyState` / `AppErrorState`
