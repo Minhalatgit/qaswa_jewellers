@@ -19,14 +19,12 @@ void setupCoreDependencies(GetIt sl) {
     () => AuthInterceptor(sl<StorageService>()),
   );
 
-  sl.registerLazySingleton<DioConfig>(
-    () => DioConfig(
+  sl.registerLazySingleton<Dio>(
+    () => DioConfig.create(
       loggingInterceptor: sl<LoggingInterceptor>(),
       authInterceptor: sl<AuthInterceptor>(),
     ),
   );
-
-  sl.registerLazySingleton<Dio>(() => sl<DioConfig>().dio);
 
   sl.registerLazySingleton<ApiClient>(() => ApiClient(sl<Dio>()));
 }
