@@ -6,4 +6,5 @@ export 'app_error_state.dart';
 export 'app_loader.dart';
 export 'app_search_field.dart';
 export 'app_snackbar.dart';
+export 'app_text.dart';
 export 'app_text_field.dart';
