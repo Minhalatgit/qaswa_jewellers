@@ -26,23 +26,45 @@ final class ApiError<T> extends ApiResponse<T> {
 }
 ```
 
-## Error Boundary — Repository Only
+## Error Boundary
 
 | Layer | try/catch? | Returns |
 |---|---|---|
-| DataSource | ❌ Never | Raw model or throws |
-| Repository | ✅ Always | `ApiResponse<Entity>` |
+| `ApiClient` | ✅ `DioException` only | `ApiResponse<Response<dynamic>>` |
+| DataSource | ❌ Never | `ApiResponse<Model>` — propagates or maps |
+| Repository | ✅ Generic `catch` only | `ApiResponse<Entity>` |
 | UseCase | ❌ Never | Passes `ApiResponse` through |
 | BLoC | ❌ Never | Maps to State |
 
 ```dart
-// ✅ Repository — catches and wraps
+// ✅ ApiClient — maps DioException to ApiError
+Future<ApiResponse<Response<dynamic>>> post(String path, {...}) async {
+  try {
+    return ApiSuccess(await _dio.post(path, ...));
+  } on DioException catch (e) {
+    return _mapDioException(e); // returns ApiError with proper message
+  }
+}
+
+// ✅ DataSource — propagates ApiError, parses on success
+Future<ApiResponse<UserModel>> getCurrentUser() async {
+  final result = await _apiClient.get(ApiConstants.currentUser);
+  return switch (result) {
+    ApiError() => result,
+    ApiSuccess(:final data) => ApiSuccess(
+        UserModel.fromJson(data.data as Map<String, dynamic>),
+      ),
+  };
+}
+
+// ✅ Repository — guard-clause for early return, generic catch only
 Future<ApiResponse<User>> login(String email, String password) async {
   try {
-    final model = await remoteDataSource.login(email, password);
-    return ApiSuccess(model.toEntity());
-  } on DioException catch (e) {
-    return ApiError(message: e.message ?? 'Request failed', statusCode: e.response?.statusCode);
+    final result = await remoteDataSource.login(email, password);
+    if (result case ApiError()) return result;
+    final data = (result as ApiSuccess).data;
+    await storage.write(StorageKeys.accessToken, data.accessToken);
+    return ApiSuccess(data.user.toEntity());
   } catch (e) {
     return ApiError(message: e.toString());
   }
@@ -66,14 +88,19 @@ class UserModel {
 class UserModel extends Equatable { ... }
 ```
 
-## Thin ApiClient
+## ApiClient
 
-`ApiClient` wraps Dio with `get/post/put/delete`. It returns raw `Response` — no JSON parsing, no model mapping.
+`ApiClient` wraps Dio with `get/post/put/delete`. It handles `DioException` and returns `ApiResponse<Response<dynamic>>` — no JSON parsing, no model mapping.
 
 ```dart
-// ✅ DataSource parses the response
-final response = await apiClient.post('/auth/login', data: body);
-return UserModel.fromJson(response.data);
+// ✅ ApiClient catches DioException and maps it
+final result = await apiClient.post('/auth/login', data: body);
+
+// ✅ DataSource pattern-matches and parses on success
+return switch (result) {
+  ApiError() => result,
+  ApiSuccess(:final data) => ApiSuccess(UserModel.fromJson(data.data as Map<String, dynamic>)),
+};
 
 // ❌ ApiClient must not know about models
 ```

@@ -1,5 +1,6 @@
 import '../../../../core/api/api_client.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/error/api_response.dart';
 import '../models/login_response_model.dart';
 import '../models/user_model.dart';
 import 'auth_remote_data_source.dart';
@@ -10,24 +11,39 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final ApiClient _apiClient;
 
   @override
-  Future<LoginResponseModel> login(String email, String password) async {
-    final response = await _apiClient.post(
+  Future<ApiResponse<LoginResponseModel>> login(
+    String email,
+    String password,
+  ) async {
+    final result = await _apiClient.post(
       ApiConstants.login,
       data: {'email': email, 'password': password},
     );
-    return LoginResponseModel.fromJson(
-      response.data as Map<String, dynamic>,
-    );
+    return switch (result) {
+      ApiError(:final message, :final statusCode) => ApiError(message: message, statusCode: statusCode),
+      ApiSuccess(:final data) => ApiSuccess(
+        LoginResponseModel.fromJson(data.data as Map<String, dynamic>),
+      ),
+    };
   }
 
   @override
-  Future<void> logout() async {
-    await _apiClient.post(ApiConstants.logout);
+  Future<ApiResponse<void>> logout() async {
+    final result = await _apiClient.post(ApiConstants.logout);
+    return switch (result) {
+      ApiError(:final message, :final statusCode) => ApiError(message: message, statusCode: statusCode),
+      ApiSuccess() => const ApiSuccess(null),
+    };
   }
 
   @override
-  Future<UserModel> getCurrentUser() async {
-    final response = await _apiClient.get(ApiConstants.currentUser);
-    return UserModel.fromJson(response.data as Map<String, dynamic>);
+  Future<ApiResponse<UserModel>> getCurrentUser() async {
+    final result = await _apiClient.get(ApiConstants.currentUser);
+    return switch (result) {
+      ApiError(:final message, :final statusCode) => ApiError(message: message, statusCode: statusCode),
+      ApiSuccess(:final data) => ApiSuccess(
+        UserModel.fromJson(data.data as Map<String, dynamic>),
+      ),
+    };
   }
 }
