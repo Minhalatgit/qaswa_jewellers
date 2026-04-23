@@ -1,11 +1,7 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
 import '../api/api_client.dart';
-import '../api/dio_config.dart';
-import '../api/interceptors/auth_interceptor.dart';
-import '../api/interceptors/logging_interceptor.dart';
 import '../services/services.dart';
 
 void setupCoreDependencies(GetIt sl) {
@@ -13,18 +9,7 @@ void setupCoreDependencies(GetIt sl) {
     () => StorageServiceImpl(const FlutterSecureStorage()),
   );
 
-  sl.registerLazySingleton<LoggingInterceptor>(() => LoggingInterceptor());
-
-  sl.registerLazySingleton<AuthInterceptor>(
-    () => AuthInterceptor(sl<StorageService>()),
+  sl.registerLazySingleton<ApiClient>(
+    () => ApiClient(sl<StorageService>()),
   );
-
-  sl.registerLazySingleton<Dio>(
-    () => DioConfig.create(
-      loggingInterceptor: sl<LoggingInterceptor>(),
-      authInterceptor: sl<AuthInterceptor>(),
-    ),
-  );
-
-  sl.registerLazySingleton<ApiClient>(() => ApiClient(sl<Dio>()));
 }
